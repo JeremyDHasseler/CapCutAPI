@@ -1,0 +1,9 @@
+[phases.setup]
+aptPkgs = ['ffmpeg']
+nixPkgs = ['...', 'python310']
+
+[phases.build]
+cmds = ['cp config.json.example config.json']
+
+[start]
+cmd = 'python capcut_server.py'
