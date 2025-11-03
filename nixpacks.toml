@@ -1,6 +1,5 @@
 [phases.setup]
 aptPkgs = ['ffmpeg']
-nixPkgs = ['...', 'python310']
 
 [phases.build]
 cmds = ['cp config.json.example config.json']
