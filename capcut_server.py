@@ -2,6 +2,7 @@ import requests
 from flask import Flask, request, jsonify, Response
 from datetime import datetime
 # Custom JDH
+import os
 import zipfile
 from flask import send_file, make_response
 # End JDH
