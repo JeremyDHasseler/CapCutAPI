@@ -57,8 +57,7 @@ def download_draft(draft_id):
     response = make_response(send_file(zip_filename, as_attachment=True))
     # Optionnel : Supprime le zip après envoi pour cleanup
     # os.remove(zip_filename)
- return response
-# End JDH
+    return response
 
 @app.route('/add_video', methods=['POST'])
 def add_video():
