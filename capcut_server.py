@@ -43,7 +43,11 @@ app = Flask(__name__)
 # Nouvel endpoint pour le download (ajoute ça entier)
 @app.route('/download_draft/<draft_id>', methods=['GET'])
 def download_draft(draft_id):
-    draft_folder = f"{draft_id}"  # Adapte au format exact (ex. : f"{draft_id}" si draft_id est "dfd_1762417156_4fa6ebdc")
+    print(f"Debug: Received draft_id = {draft_id}")  # Log l'ID passé
+    draft_folder = draft_id  # Set au full name, sans ajouter "dfd_" (puisque déjà inclus)
+    print(f"Debug: Looking for folder = {draft_folder}")
+    print(f"Debug: Current dir = {os.getcwd()}")
+    print(f"Debug: Files in dir = {os.listdir('.')}")
     
     if not os.path.exists(draft_folder):
         return jsonify({"error": "Draft not found"}), 404
