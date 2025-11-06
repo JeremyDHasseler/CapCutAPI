@@ -1,6 +1,10 @@
 import requests
 from flask import Flask, request, jsonify, Response
 from datetime import datetime
+# Custom JDH
+import zipfile
+from flask import send_file, make_response
+# End JDH
 import pyJianYingDraft as draft
 from pyJianYingDraft.metadata.animation_meta import Intro_type, Outro_type, Group_animation_type
 from pyJianYingDraft.metadata.capcut_animation_meta import CapCut_Intro_type, CapCut_Outro_type, CapCut_Group_animation_type
@@ -35,7 +39,27 @@ from pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
 from settings.local import IS_CAPCUT_ENV, DRAFT_DOMAIN, PREVIEW_ROUTER, PORT
 
 app = Flask(__name__)
- 
+# End JDH
+# Nouvel endpoint pour le download (ajoute ça entier)
+@app.route('/download_draft/<draft_id>', methods=['GET'])
+def download_draft(draft_id):
+    draft_folder = f"dfd_{draft_id}"  # Adapte au format exact (ex. : f"dfd_cat_{draft_id}" si draft_id est "1762417156_4fa6ebdc")
+    
+    if not os.path.exists(draft_folder):
+        return jsonify({"error": "Draft not found"}), 404
+    
+    zip_filename = f"{draft_folder}.zip"
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(draft_folder):
+            for file in files:
+                zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), draft_folder))
+    
+    response = make_response(send_file(zip_filename, as_attachment=True))
+    # Optionnel : Supprime le zip après envoi pour cleanup
+    # os.remove(zip_filename)
+ return response
+# End JDH
+
 @app.route('/add_video', methods=['POST'])
 def add_video():
     data = request.get_json()
