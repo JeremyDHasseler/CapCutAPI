@@ -45,11 +45,7 @@ app = Flask(__name__)
 # Nouvel endpoint pour le download
 @app.route('/download_draft/<draft_id>', methods=['GET'])
 def download_draft(draft_id):
-    print(f"Debug: Received draft_id = {draft_id}")  # Log l'ID passé
-    draft_folder = draft_id  # Set au full name, sans ajouter "dfd_" (puisque déjà inclus)
-    print(f"Debug: Looking for folder = {draft_folder}")
-    print(f"Debug: Current dir = {os.getcwd()}")
-    print(f"Debug: Files in dir = {os.listdir('.')}")
+    draft_folder = draft_id  # Set au full name, sans ajouter "dfd_" (puisque déjà inclus)    
     
     if not os.path.exists(draft_folder):
         return jsonify({"error": "Draft not found"}), 404
@@ -62,7 +58,7 @@ def download_draft(draft_id):
     
     response = make_response(send_file(zip_filename, as_attachment=True))
     # Optionnel : Supprime le zip après envoi pour cleanup
-    # os.remove(zip_filename)
+    os.remove(zip_filename)
     return response
 
 # Je testes cette signature, car j'ai besoin de connaitre la durée d'un son ou vidéo.
