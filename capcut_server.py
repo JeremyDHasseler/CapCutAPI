@@ -33,6 +33,7 @@ from add_video_keyframe_impl import add_video_keyframe_impl
 from save_draft_impl import save_draft_impl, query_task_status, query_script_impl
 from add_effect_impl import add_effect_impl
 from add_sticker_impl import add_sticker_impl
+from get_video_duration import get_duration_impl
 from create_draft import create_draft
 from util import generate_draft_url as utilgenerate_draft_url, hex_to_rgb
 from pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
@@ -41,7 +42,7 @@ from settings.local import IS_CAPCUT_ENV, DRAFT_DOMAIN, PREVIEW_ROUTER, PORT
 
 app = Flask(__name__)
 # End JDH
-# Nouvel endpoint pour le download (ajoute ça entier)
+# Nouvel endpoint pour le download
 @app.route('/download_draft/<draft_id>', methods=['GET'])
 def download_draft(draft_id):
     print(f"Debug: Received draft_id = {draft_id}")  # Log l'ID passé
@@ -63,6 +64,16 @@ def download_draft(draft_id):
     # Optionnel : Supprime le zip après envoi pour cleanup
     # os.remove(zip_filename)
     return response
+
+# Je testes cette signature, car j'ai besoin de connaitre la durée d'un son ou vidéo.
+@app.route('/get_duration', methods=['POST'])
+def get_duration_endpoint():
+    data = request.json
+    media_url = data.get('media_url')  # Accepte 'media_url' au lieu de 'video_url' pour généraliser
+    if not media_url:
+        return jsonify({"success": False, "error": "media_url required"}), 400
+    result = get_video_duration(media_url)  # Appelle la fonction existante
+    return jsonify(result)
 
 @app.route('/add_video', methods=['POST'])
 def add_video():
