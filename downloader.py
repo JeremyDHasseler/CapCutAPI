@@ -106,7 +106,19 @@ def download_audio(audio_url, draft_name, material_name):
             local_path                # Output path
         ]
         subprocess.run(command, check=True, capture_output=True, text=True)
-        return local_path
+        
+        # Get duration with ffprobe custom JDH
+        ffprobe_command = [
+            'ffprobe',
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            local_path
+        ]
+        duration_output = subprocess.check_output(ffprobe_command, text=True).strip()
+        duration = float(duration_output) if duration_output else 0.0
+        # Modifie le return pour inclure la durée (dict au lieu de string)
+        return {"path": local_path, "duration": duration} # End Custom
     except subprocess.CalledProcessError as e:
         raise Exception(f"Failed to download audio:\n{e.stderr}")
 
