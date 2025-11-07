@@ -4,6 +4,7 @@ from datetime import datetime
 # Custom JDH
 import os
 import zipfile
+import shutil
 from flask import send_file, make_response
 # End JDH
 import pyJianYingDraft as draft
@@ -60,6 +61,31 @@ def download_draft(draft_id):
     # Optionnel : Supprime le zip après envoi pour cleanup
     os.remove(zip_filename)
     return response
+
+# Nouvel endpoint pour la suppression d'un dossier draft
+@app.route('/remove_draft/<draft_id>', methods=['DELETE'])
+def remove_draft(draft_id):
+    draft_folder = draft_id  # Le draft_id est le nom complet du dossier (déjà inclus "dfd_" ou similaire)
+
+    # Vérification de sécurité : le nom doit contenir "dfd_cat"
+    if "dfd_cat" not in draft_folder:
+        return jsonify({"error": "Invalid draft name: must contain 'dfd_cat'"}), 400
+
+    # Vérification si le dossier existe
+    if not os.path.exists(draft_folder) or not os.path.isdir(draft_folder):
+        return jsonify({"error": "Draft not found or not a directory"}), 404
+
+    try:
+        # Suppression récursive du dossier
+        shutil.rmtree(draft_folder)
+        result = {
+            "success": True,
+            "output": f"Le dossier {draft_folder} a bien été supprimé.",
+            "error": ""
+        }
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete draft: {str(e)}"}), 500
 
 # Je testes cette signature, car j'ai besoin de connaitre la durée d'un son ou vidéo.
 @app.route('/get_duration', methods=['POST'])
