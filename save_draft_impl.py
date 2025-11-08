@@ -33,7 +33,9 @@ TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_fo
 
 # Custom JDH
 
-def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode: str = "random", keep_indices: list = None):
+logging.basicConfig(level=logging.INFO)
+
+def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "drafts", mode: str = "random", keep_indices: list = None):
     base_dir = os.path.join(drafts_dir, draft_id)
     draft_path = os.path.join(base_dir, "draft_info.json")
     if not os.path.exists(draft_path):
@@ -44,8 +46,11 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
 
     # Voix off: audios[0]
     voice_material = draft["materials"]["audios"][0]
-    placeholder = "##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##"
-    full_voice_path = voice_material["path"].replace(placeholder, base_dir)
+    filename = os.path.basename(voice_material["path"])
+    full_voice_path = os.path.join(base_dir, "assets", "audio", filename)
+    logging.info(f"Voix path: {full_voice_path}")
+    if not os.path.exists(full_voice_path):
+        raise ValueError(f"Voix file not found at {full_voice_path}")
 
     # Sélection keep_indices (tracks[3]["segments"])
     num_segments = len(draft["tracks"][3]["segments"])
@@ -66,7 +71,8 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
     new_draft["canvas_config"]["width"] = 608
     new_draft["canvas_config"]["height"] = 1080
 
-    # Voix coupe dans new_dir (supprime référence ancienne via update path)
+    # Voix coupe dans new_dir
+    placeholder = "##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##"
     if type == "short":
         voix_filename = "voix_short_40s.mp3"
         voix_path = os.path.join(new_dir, "assets", "audio", voix_filename)
