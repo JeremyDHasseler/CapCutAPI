@@ -97,6 +97,33 @@ def get_duration_endpoint():
     result = get_video_duration(media_url)  # Appelle la fonction existante
     return jsonify(result)
 
+@app.route('/create_short', methods=['POST'])
+def create_short():
+    data = request.json
+    draft_id = data.get('draft_id')
+    if not draft_id:
+        return jsonify({"error": "draft_id required"}), 400
+    try:
+        short_dir, _ = create_short_and_teaser(draft_id, mode="random")
+        return jsonify({"short_dir": short_dir}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/create_teaser', methods=['POST'])
+def create_teaser():
+    data = request.json
+    draft_id = data.get('draft_id')
+    
+    if not draft_id:
+        return jsonify({"error": "draft_id required"}), 400
+    try:
+        _, teaser_dir = create_short_and_teaser(draft_id, mode="random")
+        return jsonify({"teaser_dir": teaser_dir}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# End JDH
+
 @app.route('/add_video', methods=['POST'])
 def add_video():
     data = request.get_json()
