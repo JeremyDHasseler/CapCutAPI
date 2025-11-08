@@ -31,7 +31,7 @@ from add_text_impl import add_text_impl
 from add_subtitle_impl import add_subtitle_impl
 from add_image_impl import add_image_impl
 from add_video_keyframe_impl import add_video_keyframe_impl
-from save_draft_impl import save_draft_impl, query_task_status, query_script_impl
+from save_draft_impl import save_draft_impl, query_task_status, query_script_impl, create_short_or_teaser
 from add_effect_impl import add_effect_impl
 from add_sticker_impl import add_sticker_impl
 from get_duration_impl import get_video_duration
