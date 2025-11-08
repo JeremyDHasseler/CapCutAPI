@@ -33,7 +33,7 @@ TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_fo
 
 # Custom JDH
 
-def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "drafts", mode: str = "random", keep_indices: list = None):
+def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode: str = "random", keep_indices: list = None):
     base_dir = os.path.join(drafts_dir, draft_id)
     draft_path = os.path.join(base_dir, "draft_info.json")
     if not os.path.exists(draft_path):
