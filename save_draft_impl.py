@@ -71,8 +71,16 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "drafts",
     new_draft["canvas_config"]["width"] = 608
     new_draft["canvas_config"]["height"] = 1080
 
-    # Voix coupe dans new_dir
+    # Fixer tous les paths absolus vers placeholder (pour audios et videos)
     placeholder = "##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##"
+    for mat_list in [new_draft["materials"]["audios"], new_draft["materials"]["videos"]]:
+        for mat in mat_list:
+            if 'path' in mat and '/Users/' in mat["path"]:
+                mat_filename = os.path.basename(mat["path"])
+                mat_type = 'audio' if 'audio' in mat["path"] else 'video'
+                mat["path"] = f"{placeholder}/assets/{mat_type}/{mat_filename}"
+
+    # Voix coupe dans new_dir
     if type == "short":
         voix_filename = "voix_short_40s.mp3"
         voix_path = os.path.join(new_dir, "assets", "audio", voix_filename)
@@ -160,8 +168,8 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "drafts",
     else:
         raise ValueError("Type must be 'short' or 'teaser'")
 
-    # Mise à jour path voix in JSON (format placeholder, supprime référence ancienne)
-    voice_material["path"] = f"##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##/assets/audio/{voix_filename}"
+    # Mise à jour path voix in JSON (format placeholder)
+    voice_material["path"] = f"{placeholder}/assets/audio/{voix_filename}"
     voice_material["duration"] = target_voix_dur if type == "short" else 45_000_000
 
     # Sélection segments vidéo (tracks[3])
