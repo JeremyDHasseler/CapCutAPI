@@ -58,41 +58,31 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
     else:
         keep_indices = list(range(5))
 
-    # Nouveau dir
+    # Nouveau dir + copy structure
     new_dir = os.path.join(drafts_dir, f"{draft_id}_{type}")
-    os.makedirs(new_dir, exist_ok=True)
-
-    # Coupe voix AVANT copy (sur original)
-    if type == "short":
-        voix_path = os.path.join(new_dir, "assets", "audio", "voix_short_40s.mp3")
-        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '40', voix_path], check=True)
-        target_voix_dur = 40_000_000
-    elif type == "teaser":
-        voix_path = os.path.join(new_dir, "assets", "audio", "voix_teaser_45s.mp3")
-        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '45', voix_path], check=True)
-        target_voix_dur = 45_000_000
-    else:
-        raise ValueError("Type must be 'short' or 'teaser'")
-
-    # Copy tree APRÈS coupe (inclut new voix)
     shutil.copytree(base_dir, new_dir, dirs_exist_ok=True)
     new_path = os.path.join(new_dir, "draft_info.json")
     new_draft = draft.copy()
     new_draft["canvas_config"]["width"] = 608
     new_draft["canvas_config"]["height"] = 1080
 
-    # Mise à jour voix
-    voice_material["path"] = voix_path
-    voice_material["duration"] = target_voix_dur
-
-    # Sélection segments vidéo (tracks[3])
-    new_draft["tracks"][3]["segments"] = [new_draft["tracks"][3]["segments"][i] for i in keep_indices]
-
+    # Voix coupe dans new_dir
+    placeholder = "##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##"
     if type == "short":
-        new_draft["duration"] = 40_000_000
+        voix_filename = "voix_short_40s.mp3"
+        voix_path = os.path.join(new_dir, "assets", "audio", voix_filename)
+        os.makedirs(os.path.dirname(voix_path), exist_ok=True)
+        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '40', voix_path], check=True)
+        target_voix_dur = 40_000_000
+        new_draft["duration"] = target_voix_dur
     elif type == "teaser":
+        voix_filename = "voix_teaser_45s.mp3"
+        voix_path = os.path.join(new_dir, "assets", "audio", voix_filename)
+        os.makedirs(os.path.dirname(voix_path), exist_ok=True)
+        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '45', voix_path], check=True)
+        target_voix_dur = 45_000_000
         # Cliffhanger
-        cliff_start = 45_000_000
+        cliff_start = target_voix_dur
         cliff = {
             "add_type": 0,
             "alignment": 1,
@@ -161,6 +151,13 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
         new_draft["tracks"][4]["segments"].append(cliff_seg)
 
         new_draft["duration"] = 50_000_000
+
+    # Mise à jour path voix in JSON (format placeholder)
+    voice_material["path"] = f"##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##/assets/audio/{voix_filename}"
+    voice_material["duration"] = target_voix_dur if type == "short" else 45_000_000
+
+    # Sélection segments vidéo (tracks[3])
+    new_draft["tracks"][3]["segments"] = [new_draft["tracks"][3]["segments"][i] for i in keep_indices]
 
     with open(new_path, 'w', encoding='utf-8') as f:
         json.dump(new_draft, f, ensure_ascii=False, indent=2)
