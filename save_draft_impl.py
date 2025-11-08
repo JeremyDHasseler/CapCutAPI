@@ -33,7 +33,7 @@ TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_fo
 
 # Custom JDH
 
-def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode: str = "random", keep_indices: list = None):
+def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "drafts", mode: str = "random", keep_indices: list = None):
     base_dir = os.path.join(drafts_dir, draft_id)
     draft_path = os.path.join(base_dir, "draft_info.json")
     if not os.path.exists(draft_path):
@@ -43,10 +43,11 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
         draft = json.load(f)
 
     # Voix off: audios[0]
-    voice_material = draft["materials"]["audios"][0]  # id "90c80948b73037cc8c7ec990a003db8e"
-    full_voice_path = voice_material["path"].replace("##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##/assets/audio/", base_dir + "/")  # Remplace placeholder si besoin
+    voice_material = draft["materials"]["audios"][0]
+    filename = os.path.basename(voice_material["path"])
+    full_voice_path = os.path.join(base_dir, "assets", "audio", filename)
 
-    # Sélection keep_indices (tracks[3]["segments"], 10 vidéos)
+    # Sélection keep_indices (tracks[3]["segments"])
     num_segments = len(draft["tracks"][3]["segments"])
     if keep_indices and len(keep_indices) == 5:
         mode = "ia"
@@ -55,35 +56,42 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
     elif mode == "ia" and keep_indices:
         pass
     else:
-        keep_indices = list(range(5))  # Défaut premières
+        keep_indices = list(range(5))
 
     # Nouveau dir
     new_dir = os.path.join(drafts_dir, f"{draft_id}_{type}")
+    os.makedirs(new_dir, exist_ok=True)
+
+    # Coupe voix AVANT copy (sur original)
+    if type == "short":
+        voix_path = os.path.join(new_dir, "assets", "audio", "voix_short_40s.mp3")
+        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '40', voix_path], check=True)
+        target_voix_dur = 40_000_000
+    elif type == "teaser":
+        voix_path = os.path.join(new_dir, "assets", "audio", "voix_teaser_45s.mp3")
+        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '45', voix_path], check=True)
+        target_voix_dur = 45_000_000
+    else:
+        raise ValueError("Type must be 'short' or 'teaser'")
+
+    # Copy tree APRÈS coupe (inclut new voix)
     shutil.copytree(base_dir, new_dir, dirs_exist_ok=True)
     new_path = os.path.join(new_dir, "draft_info.json")
     new_draft = draft.copy()
     new_draft["canvas_config"]["width"] = 608
     new_draft["canvas_config"]["height"] = 1080
 
+    # Mise à jour voix
+    voice_material["path"] = voix_path
+    voice_material["duration"] = target_voix_dur
+
     # Sélection segments vidéo (tracks[3])
     new_draft["tracks"][3]["segments"] = [new_draft["tracks"][3]["segments"][i] for i in keep_indices]
 
     if type == "short":
-        # Voix: coupe 40s
-        voix_path = os.path.join(base_dir, "voix_short_40s.mp3")
-        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '40', voix_path], check=True)
-        voice_material["path"] = voix_path
-        voice_material["duration"] = 40_000_000
-        new_draft["duration"] = 40_000_000  # Fixe total
-
+        new_draft["duration"] = 40_000_000
     elif type == "teaser":
-        # Voix: coupe 45s
-        voix_path = os.path.join(base_dir, "voix_teaser_45s.mp3")
-        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '45', voix_path], check=True)
-        voice_material["path"] = voix_path
-        voice_material["duration"] = 45_000_000
-
-        # Cliffhanger 5s
+        # Cliffhanger
         cliff_start = 45_000_000
         cliff = {
             "add_type": 0,
@@ -143,7 +151,6 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
         }
         new_draft["materials"]["texts"].append(cliff)
 
-        # Ajout segment cliff à tracks[4] ("subtitle")
         cliff_seg = {
             "clip": {"alpha": 1.0, "flip": {"horizontal": false, "vertical": false}, "rotation": 0.0, "scale": {"x": 1.0, "y": 1.0}, "transform": {"x": 0.0, "y": -0.8}},
             "id": "cliff_seg_001",
@@ -153,10 +160,7 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
         }
         new_draft["tracks"][4]["segments"].append(cliff_seg)
 
-        new_draft["duration"] = 50_000_000  # 50s total
-
-    else:
-        raise ValueError("Type must be 'short' or 'teaser'")
+        new_draft["duration"] = 50_000_000
 
     with open(new_path, 'w', encoding='utf-8') as f:
         json.dump(new_draft, f, ensure_ascii=False, indent=2)
