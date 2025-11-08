@@ -44,8 +44,8 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
 
     # Voix off: audios[0]
     voice_material = draft["materials"]["audios"][0]
-    filename = os.path.basename(voice_material["path"])
-    full_voice_path = os.path.join(base_dir, "assets", "audio", filename)
+    placeholder = "##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##"
+    full_voice_path = voice_material["path"].replace(placeholder, base_dir)
 
     # Sélection keep_indices (tracks[3]["segments"])
     num_segments = len(draft["tracks"][3]["segments"])
@@ -66,8 +66,7 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
     new_draft["canvas_config"]["width"] = 608
     new_draft["canvas_config"]["height"] = 1080
 
-    # Voix coupe dans new_dir
-    placeholder = "##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##"
+    # Voix coupe dans new_dir (supprime référence ancienne via update path)
     if type == "short":
         voix_filename = "voix_short_40s.mp3"
         voix_path = os.path.join(new_dir, "assets", "audio", voix_filename)
@@ -112,11 +111,11 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
             "font_title": "none",
             "font_url": "",
             "global_alpha": 1.0,
-            "has_shadow": false,
+            "has_shadow": False,
             "id": "cliff_001",
             "initial_scale": 0.0,
             "inner_padding": -1.0,
-            "is_rich_text": false,
+            "is_rich_text": False,
             "italic_degree": 0,
             "letter_spacing": 0.0,
             "line_spacing": 0.02,
@@ -137,22 +136,25 @@ def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "", mode:
             "text_size": 30,
             "type": "text",
             "typesetting": 0,
-            "use_effect_default_color": true
+            "use_effect_default_color": True
         }
         new_draft["materials"]["texts"].append(cliff)
 
         cliff_seg = {
-            "clip": {"alpha": 1.0, "flip": {"horizontal": false, "vertical": false}, "rotation": 0.0, "scale": {"x": 1.0, "y": 1.0}, "transform": {"x": 0.0, "y": -0.8}},
+            "clip": {"alpha": 1.0, "flip": {"horizontal": False, "vertical": False}, "rotation": 0.0, "scale": {"x": 1.0, "y": 1.0}, "transform": {"x": 0.0, "y": -0.8}},
             "id": "cliff_seg_001",
             "material_id": "cliff_001",
             "target_timerange": {"duration": 5_000_000, "start": cliff_start},
-            "visible": true
+            "visible": True
         }
         new_draft["tracks"][4]["segments"].append(cliff_seg)
 
         new_draft["duration"] = 50_000_000
 
-    # Mise à jour path voix in JSON (format placeholder)
+    else:
+        raise ValueError("Type must be 'short' or 'teaser'")
+
+    # Mise à jour path voix in JSON (format placeholder, supprime référence ancienne)
     voice_material["path"] = f"##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##/assets/audio/{voix_filename}"
     voice_material["duration"] = target_voix_dur if type == "short" else 45_000_000
 
