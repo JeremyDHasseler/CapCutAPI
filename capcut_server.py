@@ -105,7 +105,7 @@ def create_short():
         return jsonify({"error": "draft_id required"}), 400
     keep_indices = data.get('keep_indices')
     try:
-        short_dir = create_short_or_teaser(draft_id, "short", mode="ia" if keep_indices else "random", keep_indices=keep_indices)
+        short_dir = create_short_or_teaser(draft_id, "short", drafts_dir="", mode="ia" if keep_indices else "random", keep_indices=keep_indices)
         return jsonify({"short_dir": short_dir}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -118,7 +118,7 @@ def create_teaser():
         return jsonify({"error": "draft_id required"}), 400
     keep_indices = data.get('keep_indices')
     try:
-        teaser_dir = create_short_or_teaser(draft_id, "teaser", mode="ia" if keep_indices else "random", keep_indices=keep_indices)
+        teaser_dir = create_short_or_teaser(draft_id, "teaser", drafts_dir="", mode="ia" if keep_indices else "random", keep_indices=keep_indices)
         return jsonify({"teaser_dir": teaser_dir}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
