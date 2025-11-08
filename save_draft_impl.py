@@ -19,8 +19,7 @@ from collections import OrderedDict
 import time
 import requests # Import requests for making HTTP calls
 import logging
-import os
-import shutil
+import random
 from pathlib import Path
 # Import configuration
 from settings import IS_CAPCUT_ENV, IS_UPLOAD_DRAFT
@@ -33,82 +32,136 @@ logger = logging.getLogger('flask_video_generator')
 TaskStatus = Literal["initialized", "processing", "completed", "failed", "not_found"]
 
 # Custom JDH
-def create_short_and_teaser(draft_id: str, drafts_dir: str = "", mode: str = "random", ia_indices: list = None):
+
+def create_short_or_teaser(draft_id: str, type: str, drafts_dir: str = "drafts", mode: str = "random", keep_indices: list = None):
     base_dir = os.path.join(drafts_dir, draft_id)
-    draft_path = os.path.join(base_dir, "draft_content.json")
+    draft_path = os.path.join(base_dir, "draft_info.json")
     if not os.path.exists(draft_path):
         raise ValueError(f"Draft {draft_id} not found")
 
-    # Chargement du draft original
     with open(draft_path, 'r', encoding='utf-8') as f:
         draft = json.load(f)
 
-    # Trouver la voix off via track_name (assume 1 seul track audio avec ce nom)
-    voice_track = next((t for t in draft.get("tracks", []) if t.get("track_name") == "voix_off"), None)
-    if not voice_track:
-        raise ValueError("Voix off track not found")
-    voice_material_id = voice_track["segments"][0]["material_id"]  # Assume 1 segment
-    voice_material = next((m for m in draft["materials"]["audios"] if m["id"] == voice_material_id), None)
-    if not voice_material:
-        raise ValueError("Voix off material not found")
-    full_voice_path = voice_material["path"]
+    # Voix off: audios[0]
+    voice_material = draft["materials"]["audios"][0]  # id "90c80948b73037cc8c7ec990a003db8e"
+    full_voice_path = voice_material["path"].replace("##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##/assets/audio/", base_dir + "/")  # Remplace placeholder si besoin
 
-    # Couper la voix off (réutilisation sans nouvelle génération IA)
-    voix_short_path = os.path.join(base_dir, "voix_short.mp3")
-    voix_teaser_path = os.path.join(base_dir, "voix_teaser.mp3")
-    subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-ss', '5', '-t', '8', voix_short_path], check=True)  # 8s viral
-    subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-ss', '0', '-t', '12', voix_teaser_path], check=True)  # 12s teaser
-
-    # === SHORT 40s ===
-    short_dir = os.path.join(drafts_dir, f"{draft_id}_short")
-    shutil.copytree(base_dir, short_dir, dirs_exist_ok=True)
-    short_path = os.path.join(short_dir, "draft_content.json")
-    short = draft.copy()
+    # Sélection keep_indices (tracks[3]["segments"], 10 vidéos)
+    num_segments = len(draft["tracks"][3]["segments"])
+    if keep_indices and len(keep_indices) == 5:
+        mode = "ia"
     if mode == "random":
-        num_segments = len(short["tracks"][0]["segments"])
-        keep_indices = random.sample(range(num_segments), min(5, num_segments))  # Random 5 sur 10
-    elif mode == "ia":
-        if not ia_indices or len(ia_indices) != 5:
-            raise ValueError("ia_indices must be list of 5 integers")
-        keep_indices = ia_indices
+        keep_indices = random.sample(range(num_segments), 5)
+    elif mode == "ia" and keep_indices:
+        pass
     else:
-        raise ValueError("Mode must be 'random' or 'ia'")
+        keep_indices = list(range(5))  # Défaut premières
 
-    short["tracks"][0]["segments"] = [s for i, s in enumerate(short["tracks"][0]["segments"]) if i in keep_indices]
-    
-    short["canvas_config"]["width"], short["canvas_config"]["height"] = 608, 1080
-    voice_material["path"] = voix_short_path  # Mise à jour path
-    voice_material["duration"] = 8000000  # 8s en µs
-    keep_indices = [2, 4, 6, 8, 9]  # Adapter aux 5 scènes virales (ex: choc/twist)
-    short["tracks"][0]["segments"] = [s for i, s in enumerate(short["tracks"][0]["segments"]) if i in keep_indices]
-    short["duration"] = sum(s["target_timerange"]["duration"] for s in short["tracks"][0]["segments"])
-    with open(short_path, 'w', encoding='utf-8') as f:
-        json.dump(short, f, ensure_ascii=False, indent=2)
+    # Nouveau dir
+    new_dir = os.path.join(drafts_dir, f"{draft_id}_{type}")
+    shutil.copytree(base_dir, new_dir, dirs_exist_ok=True)
+    new_path = os.path.join(new_dir, "draft_info.json")
+    new_draft = draft.copy()
+    new_draft["canvas_config"]["width"] = 608
+    new_draft["canvas_config"]["height"] = 1080
 
-    # === TEASER 50s + CLIFFHANGER ===
-    teaser_dir = os.path.join(drafts_dir, f"{draft_id}_teaser")
-    shutil.copytree(base_dir, teaser_dir, dirs_exist_ok=True)
-    teaser_path = os.path.join(teaser_dir, "draft_content.json")
-    teaser = draft.copy()
-    teaser["canvas_config"]["width"], teaser["canvas_config"]["height"] = 608, 1080
-    voice_material["path"] = voix_teaser_path
-    voice_material["duration"] = 12000000  # 12s
-    teaser["tracks"][0]["segments"] = teaser["tracks"][0]["segments"][:5]  # 5 premières
-    teaser_duration = sum(s["target_timerange"]["duration"] for s in teaser["tracks"][0]["segments"][:4])
-    cliff = {
-        "id": "cliff_001",
-        "type": "sticker",
-        "path": "",
-        "target_timerange": {"start": teaser_duration, "duration": 5000000},
-        "text": {"content": "LA SUITE ?\n👇 VIDÉO COMPLÈTE", "font_size": 80, "color": "#FF0000", "stroke_color": "#000000", "stroke_width": 4}
-    }
-    teaser["materials"]["texts"].append(cliff)
-    teaser["tracks"].append({"type": "text", "segments": [{"material_id": "cliff_001"}]})
-    teaser["duration"] = teaser_duration + 5000000
-    with open(teaser_path, 'w', encoding='utf-8') as f:
-        json.dump(teaser, f, ensure_ascii=False, indent=2)
+    # Sélection segments vidéo (tracks[3])
+    new_draft["tracks"][3]["segments"] = [new_draft["tracks"][3]["segments"][i] for i in keep_indices]
 
-    return short_dir, teaser_dir
+    if type == "short":
+        # Voix: coupe 40s
+        voix_path = os.path.join(base_dir, "voix_short_40s.mp3")
+        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '40', voix_path], check=True)
+        voice_material["path"] = voix_path
+        voice_material["duration"] = 40_000_000
+        new_draft["duration"] = 40_000_000  # Fixe total
+
+    elif type == "teaser":
+        # Voix: coupe 45s
+        voix_path = os.path.join(base_dir, "voix_teaser_45s.mp3")
+        subprocess.run(['ffmpeg', '-y', '-i', full_voice_path, '-t', '45', voix_path], check=True)
+        voice_material["path"] = voix_path
+        voice_material["duration"] = 45_000_000
+
+        # Cliffhanger 5s
+        cliff_start = 45_000_000
+        cliff = {
+            "add_type": 0,
+            "alignment": 1,
+            "background_alpha": 1.0,
+            "background_color": "",
+            "background_height": 0.14,
+            "background_horizontal_offset": 0.0,
+            "background_style": 0,
+            "background_vertical_offset": 0.0,
+            "background_width": 0.14,
+            "base_content": "",
+            "border_alpha": 1.0,
+            "border_color": "",
+            "border_width": 0.06,
+            "check_flag": 7,
+            "content": "{\"styles\": [{\"fill\": {\"alpha\": 1.0, \"content\": {\"render_type\": \"solid\", \"solid\": {\"alpha\": 1, \"color\": [1.0, 0.0, 0.0]}} }}], \"text\": \"LA SUITE ?\\n👇 VIDÉO COMPLÈTE\"}",
+            "font_category_id": "",
+            "font_category_name": "",
+            "font_id": "",
+            "font_name": "",
+            "font_path": "/Applications/CapCut.app/Contents/Resources/Font/SystemFont/en.ttf",
+            "font_resource_id": "",
+            "font_size": 80,
+            "font_source_platform": 0,
+            "font_team_id": "",
+            "font_third_resource_id": "",
+            "font_title": "none",
+            "font_url": "",
+            "global_alpha": 1.0,
+            "has_shadow": false,
+            "id": "cliff_001",
+            "initial_scale": 0.0,
+            "inner_padding": -1.0,
+            "is_rich_text": false,
+            "italic_degree": 0,
+            "letter_spacing": 0.0,
+            "line_spacing": 0.02,
+            "multi_language_current": "none",
+            "name": "",
+            "preset_category": "",
+            "preset_id": "",
+            "preset_name": "",
+            "shadow_alpha": 0.8,
+            "shadow_color": "",
+            "shadow_distance": 0.0,
+            "shadow_smoothing": 0.0,
+            "source_from": "",
+            "style_name": "",
+            "sub_type": 0,
+            "text_alpha": 1.0,
+            "text_color": "",
+            "text_size": 30,
+            "type": "text",
+            "typesetting": 0,
+            "use_effect_default_color": true
+        }
+        new_draft["materials"]["texts"].append(cliff)
+
+        # Ajout segment cliff à tracks[4] ("subtitle")
+        cliff_seg = {
+            "clip": {"alpha": 1.0, "flip": {"horizontal": false, "vertical": false}, "rotation": 0.0, "scale": {"x": 1.0, "y": 1.0}, "transform": {"x": 0.0, "y": -0.8}},
+            "id": "cliff_seg_001",
+            "material_id": "cliff_001",
+            "target_timerange": {"duration": 5_000_000, "start": cliff_start},
+            "visible": true
+        }
+        new_draft["tracks"][4]["segments"].append(cliff_seg)
+
+        new_draft["duration"] = 50_000_000  # 50s total
+
+    else:
+        raise ValueError("Type must be 'short' or 'teaser'")
+
+    with open(new_path, 'w', encoding='utf-8') as f:
+        json.dump(new_draft, f, ensure_ascii=False, indent=2)
+
+    return new_dir
 # End Custom
 
 def build_asset_path(draft_folder: str, draft_id: str, asset_type: str, material_name: str) -> str:
