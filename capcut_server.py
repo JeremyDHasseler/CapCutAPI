@@ -58,10 +58,9 @@ def download_draft(draft_id):
                 zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), draft_folder))
     
     response = make_response(send_file(zip_filename, as_attachment=True))
-    # Nettoie *APRÈS* le téléchargement (en fond)
-    os.remove(zip_filename)
-    return response
-
+    os.remove(zip_filename)
+    return response
+    
 # Nouvel endpoint pour la suppression d'un dossier draft
 @app.route('/remove_draft/<draft_id>', methods=['DELETE'])
 def remove_draft(draft_id):
