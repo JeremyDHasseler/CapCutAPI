@@ -58,8 +58,17 @@ def download_draft(draft_id):
                 zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), draft_folder))
     
     response = make_response(send_file(zip_filename, as_attachment=True))
-    # Optionnel : Supprime le zip après envoi pour cleanup
-    os.remove(zip_filename)
+    # Nettoie *APRÈS* le téléchargement (en fond)
+    def cleanup():
+        time.sleep(10)  # Attente sécurité
+        try:
+            if os.path.exists(zip_filename):
+                os.remove(zip_filename)
+                current_app.logger.info(f"[CLEANUP] Removed: {zip_filename}")
+        except Exception as e:
+            current_app.logger.error(f"[CLEANUP ERROR] {e}")
+
+    threading.Thread(target=cleanup, daemon=True).start()
     return response
 
 # Nouvel endpoint pour la suppression d'un dossier draft
